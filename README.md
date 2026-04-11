@@ -1,4 +1,4 @@
-
+%%writefile README.md
 
 # 🚀 Strategic Employee Attrition Risk Analytics
 
@@ -18,7 +18,7 @@ Traditional HR approaches are reactive, addressing turnover only after it occurs
 The challenge is to develop a predictive system that can:
 
 - Identify employees at high risk of attrition  
-- Understand the key drivers behind turnover  
+- Understand the key drivers behind attrition  
 - Enable proactive, data-driven retention strategies  
 
 This project applies machine learning techniques to transform HR data into actionable workforce intelligence.
@@ -271,5 +271,3 @@ Passionate about building intelligent systems that solve real-world business pro
 ---
 
 ## ⭐ If you found this project useful, consider giving it a star!
-
-
