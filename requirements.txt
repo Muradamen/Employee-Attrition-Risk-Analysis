@@ -1,8 +1,7 @@
-imbalanced-learn
-scikit-learn==1.4.2
 streamlit
 pandas
 numpy
+scikit-learn==1.4.2
 xgboost
 joblib
 shap

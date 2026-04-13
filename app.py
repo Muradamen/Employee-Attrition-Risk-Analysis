@@ -1,84 +1,144 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import os
+import shap
+import matplotlib.pyplot as plt
 
-# ✅ Required imports for loading model
-from imblearn.pipeline import Pipeline as ImbPipeline
-from imblearn.over_sampling import SMOTE
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from xgboost import XGBClassifier
+# -------------------------------
+# CONFIG
+# -------------------------------
+st.set_page_config(
+    page_title="AI Employee Attrition Predictor", page_icon="🏢", layout="wide"
+)
 
 
 # -------------------------------
-# LOAD MODEL + REFERENCE DATA
+# LOAD MODEL + DATA
 # -------------------------------
 @st.cache_resource
 def load_assets():
-    try:
-        model = joblib.load("models/attrition_model.pkl")
-
-        df = pd.read_csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")
-        reference_df = df.drop("Attrition", axis=1)
-
-        return model, reference_df
-
-    except Exception as e:
-        st.error(f"Error loading assets: {e}")
-        st.stop()
+    model = joblib.load("models/attrition_model.pkl")
+    df = pd.read_csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")
+    reference = df.drop("Attrition", axis=1)
+    return model, reference
 
 
-model_pipeline, reference_df = load_assets()
-
+model, reference_df = load_assets()
 
 # -------------------------------
-# UI
+# HEADER
 # -------------------------------
-st.title("🏢 IBM HR Attrition Predictor")
-
-st.sidebar.header("Employee Input")
-
+st.title("🏢 AI-Powered Employee Attrition Predictor")
+st.markdown("### Predict Risk • Understand Causes • Take Action")
 
 # -------------------------------
-# BUILD INPUTS FROM DATASET
+# SIDEBAR INPUTS (GROUPED)
 # -------------------------------
-input_data = {}
+st.sidebar.header("👤 Employee Profile")
 
-for col in reference_df.columns:
+with st.sidebar.expander("📊 Personal Info", expanded=True):
+    age = st.slider("Age", 18, 60, 30)
+    distance = st.slider("Distance From Home", 1, 30, 10)
+    marital = st.selectbox("Marital Status", ["Single", "Married", "Divorced"])
 
-    if reference_df[col].dtype == "object":
-        input_data[col] = st.sidebar.selectbox(
-            col, options=reference_df[col].unique(), index=0
-        )
-    else:
-        input_data[col] = st.sidebar.slider(
-            col,
-            int(reference_df[col].min()),
-            int(reference_df[col].max()),
-            int(reference_df[col].median()),
-        )
+with st.sidebar.expander("💼 Job Info", expanded=True):
+    job_role = st.selectbox("Job Role", reference_df["JobRole"].unique())
+    overtime = st.selectbox("OverTime", ["No", "Yes"])
+    work_life = st.slider("Work-Life Balance", 1, 4, 3)
 
-input_df = pd.DataFrame([input_data])
+with st.sidebar.expander("💰 Compensation", expanded=True):
+    income = st.slider("Monthly Income", 1000, 20000, 5000)
+    stock = st.selectbox("Stock Option Level", [0, 1, 2, 3])
+    hike = st.slider("Percent Salary Hike", 10, 25, 15)
 
+with st.sidebar.expander("📈 Satisfaction", expanded=True):
+    job_sat = st.slider("Job Satisfaction", 1, 4, 3)
+    env_sat = st.slider("Environment Satisfaction", 1, 4, 3)
+
+# -------------------------------
+# BUILD INPUT (SAFE METHOD)
+# -------------------------------
+input_df = reference_df.iloc[[0]].copy()
+
+input_df["Age"] = age
+input_df["DistanceFromHome"] = distance
+input_df["MonthlyIncome"] = income
+input_df["OverTime"] = overtime
+input_df["StockOptionLevel"] = stock
+input_df["PercentSalaryHike"] = hike
+input_df["JobSatisfaction"] = job_sat
+input_df["EnvironmentSatisfaction"] = env_sat
+input_df["WorkLifeBalance"] = work_life
+input_df["JobRole"] = job_role
+input_df["MaritalStatus"] = marital
+
+# -------------------------------
+# MAIN LAYOUT
+# -------------------------------
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.subheader("📋 Employee Snapshot")
+    st.dataframe(input_df)
 
 # -------------------------------
 # PREDICTION
 # -------------------------------
-st.subheader("Input Data")
-st.write(input_df)
+if st.button("🚀 Generate Analysis"):
 
-if st.button("Predict Attrition"):
-    try:
-        prediction = model_pipeline.predict(input_df)[0]
-        prob = model_pipeline.predict_proba(input_df)[0][1]
+    pred = model.predict(input_df)[0]
+    prob = model.predict_proba(input_df)[0][1]
 
-        st.subheader("Result")
+    with col2:
+        st.subheader("📊 Prediction Result")
 
-        if prediction == 1:
-            st.error(f"⚠️ High Attrition Risk (Probability: {prob:.2f})")
+        if prob > 0.6:
+            st.error(f"🔴 High Attrition Risk ({prob:.2%})")
+        elif prob > 0.3:
+            st.warning(f"🟡 Medium Risk ({prob:.2%})")
         else:
-            st.success(f"✅ Low Attrition Risk (Probability: {prob:.2f})")
+            st.success(f"🟢 Low Risk ({prob:.2%})")
+
+    # -------------------------------
+    # SHAP EXPLANATION
+    # -------------------------------
+    st.divider()
+    st.subheader("🧠 Why is this happening? (Explainability)")
+
+    try:
+        model_obj = model.named_steps["model"]
+        preprocessor = model.named_steps["preprocessor"]
+
+        X_transformed = preprocessor.transform(input_df)
+        feature_names = preprocessor.get_feature_names_out()
+
+        explainer = shap.TreeExplainer(model_obj)
+        shap_values = explainer.shap_values(X_transformed)
+
+        fig, ax = plt.subplots(figsize=(10, 4))
+        shap.bar_plot(
+            shap_values[0], feature_names=feature_names, max_display=10, show=False
+        )
+        st.pyplot(fig)
 
     except Exception as e:
-        st.error(f"Prediction error: {e}")
+        st.warning("SHAP explanation not available.")
+        st.text(str(e))
+
+    # -------------------------------
+    # BUSINESS INSIGHTS
+    # -------------------------------
+    st.divider()
+    st.subheader("📋 HR Recommendations")
+
+    if overtime == "Yes" and prob > 0.4:
+        st.warning("⚠️ Employee is working overtime → Risk of burnout")
+
+    if income < 4000:
+        st.info("💡 Salary below competitive level → Consider adjustment")
+
+    if work_life <= 2:
+        st.warning("⚠️ Poor work-life balance → Improve flexibility")
+
+    if job_sat <= 2:
+        st.warning("⚠️ Low job satisfaction → Engagement intervention needed")
