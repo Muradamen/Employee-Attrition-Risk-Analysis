@@ -3,6 +3,12 @@ import pandas as pd
 import joblib
 import shap
 import matplotlib.pyplot as plt
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from imblearn.pipeline import Pipeline as ImbPipeline
+from imblearn.over_sampling import SMOTE
+from xgboost import XGBClassifier
 
 # -------------------------------
 # CONFIG
