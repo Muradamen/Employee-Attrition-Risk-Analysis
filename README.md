@@ -260,6 +260,12 @@ Employee-Attrition-Risk-Analysis/
 * Integration with HR systems for real-time predictions
 
 ---
+# 🏢 Employee Attrition Risk Analysis
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_svg.svg)](https://employee-attrition-risk-analysis-afscglujxtckugbntp8ccs.streamlit.app/)
+
+## 🚀 Live Demo
+You can access the interactive AI dashboard here: [Employee Attrition Predictor](https://employee-attrition-risk-analysis-afscglujxtckugbntp8ccs.streamlit.app/)
 
 ## 👤 Author
 
