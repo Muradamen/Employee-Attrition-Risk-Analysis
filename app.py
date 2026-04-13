@@ -1,115 +1,84 @@
-%%writefile app.py
-
 import streamlit as st
 import pandas as pd
 import joblib
 import os
 
-# 🔥 ADD THESE (CRITICAL FIX for imblearn components)
+# ✅ Required imports for loading model
 from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.over_sampling import SMOTE
-
-# 🔥 ADD THESE (CRITICAL FIX for sklearn and xgboost components)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from xgboost import XGBClassifier
 
-# @st.cache_resource is used to cache the model loading process
+
+# -------------------------------
+# LOAD MODEL + REFERENCE DATA
+# -------------------------------
 @st.cache_resource
 def load_assets():
-    # Load the trained model pipeline
     try:
-        model_pipeline = joblib.load('models/attrition_model.pkl')
-        return model_pipeline, None # Return model_pipeline and a placeholder for reference_df
-    except FileNotFoundError:
-        st.error("Model file 'models/attrition_model.pkl' not found. Please ensure it's in the correct path.")
+        model = joblib.load("models/attrition_model.pkl")
+
+        df = pd.read_csv("WA_Fn-UseC_-HR-Employee-Attrition.csv")
+        reference_df = df.drop("Attrition", axis=1)
+
+        return model, reference_df
+
+    except Exception as e:
+        st.error(f"Error loading assets: {e}")
         st.stop()
 
-# Load assets (model) using the cached function
+
 model_pipeline, reference_df = load_assets()
-preprocessor = model_pipeline.named_steps['preprocessor']
-model = model_pipeline.named_steps['model']
 
-st.title("IBM HR Attrition Prediction Dashboard")
-st.write("Predict employee attrition based on various factors.")
 
-# Define input features and their types/ranges dynamically based on X from the notebook's kernel state
-# In a standalone app, these would be hardcoded or loaded from a config.
+# -------------------------------
+# UI
+# -------------------------------
+st.title("🏢 IBM HR Attrition Predictor")
 
-# Helper function to get descriptive stats for numerical and unique values for categorical
-def get_feature_info(feature_name, df_source):
-    if df_source[feature_name].dtype == 'object': # Categorical
-        return {'type': 'category', 'options': list(df_source[feature_name].unique()), 'default': df_source[feature_name].mode()[0]}
-    else: # Numerical
-        min_val = int(df_source[feature_name].min())
-        max_val = int(df_source[feature_name].max())
-        default_val = int(df_source[feature_name].median()) # Use median for default to be robust to outliers
-        return {'type': 'number', 'min': min_val, 'max': max_val, 'default': default_val}
+st.sidebar.header("Employee Input")
 
-# Collect all feature names from X (assuming X is the global DataFrame from the notebook)
-# Exclude 'EmployeeCount' if it somehow persisted and is constant
-all_features = [col for col in X.columns if col not in ['EmployeeCount']]
 
-feature_details_dynamic = {}
-for col in all_features:
-    info = get_feature_info(col, X)
-    if info:
-        feature_details_dynamic[col] = info
-
+# -------------------------------
+# BUILD INPUTS FROM DATASET
+# -------------------------------
 input_data = {}
-st.sidebar.header("Employee Characteristics")
 
-# Sort features alphabetically for consistent display in the sidebar
-sorted_features = sorted(feature_details_dynamic.keys())
+for col in reference_df.columns:
 
-for feature in sorted_features:
-    details = feature_details_dynamic[feature]
-    if details['type'] == 'number':
-        input_data[feature] = st.sidebar.slider(
-            f"{feature}",
-            min_value=details['min'],
-            max_value=details['max'],
-            value=details['default']
+    if reference_df[col].dtype == "object":
+        input_data[col] = st.sidebar.selectbox(
+            col, options=reference_df[col].unique(), index=0
         )
-    elif details['type'] == 'category':
-        input_data[feature] = st.sidebar.selectbox(
-            f"{feature}",
-            options=details['options'],
-            index=details['options'].index(details['default']) if details['default'] in details['options'] else 0
+    else:
+        input_data[col] = st.sidebar.slider(
+            col,
+            int(reference_df[col].min()),
+            int(reference_df[col].max()),
+            int(reference_df[col].median()),
         )
 
 input_df = pd.DataFrame([input_data])
 
-st.subheader("Input Features for Prediction:")
+
+# -------------------------------
+# PREDICTION
+# -------------------------------
+st.subheader("Input Data")
 st.write(input_df)
 
-if st.button("Predict Attrition"):    # Check if the model_pipeline is loaded before making predictions
-    if model_pipeline is not None:
-        try:
-            prediction = model_pipeline.predict(input_df)
-            prediction_proba = model_pipeline.predict_proba(input_df)[:, 1]
+if st.button("Predict Attrition"):
+    try:
+        prediction = model_pipeline.predict(input_df)[0]
+        prob = model_pipeline.predict_proba(input_df)[0][1]
 
-            st.subheader("Prediction Result:")
-            if prediction[0] == 1:
-                st.error(f"**This employee is likely to attrite.** (Probability: {prediction_proba[0]:.2f})")
-            else:
-                st.success(f"**This employee is not likely to attrite.** (Probability: {prediction_proba[0]:.2f})")
+        st.subheader("Result")
 
-            st.markdown(f"**Confidence (Probability of Attrition):** `{prediction_proba[0]:.2f}`")
+        if prediction == 1:
+            st.error(f"⚠️ High Attrition Risk (Probability: {prob:.2f})")
+        else:
+            st.success(f"✅ Low Attrition Risk (Probability: {prob:.2f})")
 
-            st.markdown("---")
-            st.markdown("### Key factors influencing attrition (from model training):")
-            # Assuming feat_imp is a global variable from the notebook's kernel state
-            if 'feat_imp' in globals():
-                top_features_list = feat_imp['Feature'].head(5).tolist()
-                for i, feat in enumerate(top_features_list):
-                    st.markdown(f"- {feat}")
-            else:
-                st.markdown("- Overtime")
-                st.markdown("- Monthly Income")
-                st.markdown("- Distance From Home")
-
-        except Exception as e:
-            st.error(f"An error occurred during prediction: {e}")
-    else:
-        st.error("Model is not loaded. Cannot make predictions.")
+    except Exception as e:
+        st.error(f"Prediction error: {e}")
