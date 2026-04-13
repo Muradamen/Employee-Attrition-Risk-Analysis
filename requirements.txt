@@ -1,8 +1,7 @@
-scikit-learn==1.3.2
-xgboost
-joblib
 streamlit
 pandas
-matplotlib
+joblib
+scikit-learn==1.3.2
+xgboost
 shap
-imblearn (imbalanced-learn)
+matplotlib
