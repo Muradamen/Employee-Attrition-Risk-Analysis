@@ -16,10 +16,9 @@ from xgboost import XGBClassifier
 # CONFIG
 # -------------------------------
 st.set_page_config(
-    page_title="AI Employee Attrition Predictor", 
-    page_icon="🏢", 
-    layout="wide"
+    page_title="AI Employee Attrition Predictor", page_icon="🏢", layout="wide"
 )
+
 
 # -------------------------------
 # LOAD ASSETS (FIXED)
@@ -29,7 +28,7 @@ def load_assets():
     # Use relative paths for Streamlit Cloud compatibility
     model_path = os.path.join("models", "attrition_model.pkl")
     data_path = "WA_Fn-UseC_-HR-Employee-Attrition.csv"
-    
+
     try:
         model = joblib.load(model_path)
         df = pd.read_csv(data_path)
@@ -39,15 +38,18 @@ def load_assets():
         # We return None so the app can display a friendly error instead of a crash
         return None, str(e)
 
+
 # Initialize
 model, data_status = load_assets()
 
 if model is None:
     st.error(f"🛑 Failed to load model. Error: {data_status}")
-    st.info("Check if 'models/attrition_model.pkl' exists and matches your scikit-learn version (1.3.2).")
+    st.info(
+        "Check if 'models/attrition_model.pkl' exists and matches your scikit-learn version (1.3.2)."
+    )
     st.stop()
 
-reference_df = data_status # If model loaded, data_status is our reference_df
+reference_df = data_status  # If model loaded, data_status is our reference_df
 
 # -------------------------------
 # UI & INPUTS (KEEP YOUR SIDEBAR AS IS)
@@ -74,7 +76,7 @@ input_df.at[0, "StockOptionLevel"] = stock_level
 if st.button("🔍 Run Risk Analysis"):
     # Probability prediction
     prob = model.predict_proba(input_df)[0][1]
-    
+
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Risk Probability", f"{prob:.1%}")
@@ -90,8 +92,7 @@ if st.button("🔍 Run Risk Analysis"):
     # SHAP EXPLANATION (MATCHING PRODUCTION PIPELINE)
     # -------------------------------
     st.divider()
-    st.subheader("🧠 AI "Why": What is driving this risk?")
-    
+    st.subheader('🧠 AI "Why": What is driving this risk?')
     try:
         # Access steps from your specific Production Pipeline
         model_obj = model.named_steps["model"]
@@ -106,11 +107,16 @@ if st.button("🔍 Run Risk Analysis"):
 
         fig, ax = plt.subplots(figsize=(10, 4))
         # Use waterfall or bar plot
-        shap.plots.bar(shap.Explanation(values=shap_values[0], 
-                                         base_values=explainer.expected_value, 
-                                         data=X_transformed[0], 
-                                         feature_names=feature_names), 
-                        max_display=10, show=False)
+        shap.plots.bar(
+            shap.Explanation(
+                values=shap_values[0],
+                base_values=explainer.expected_value,
+                data=X_transformed[0],
+                feature_names=feature_names,
+            ),
+            max_display=10,
+            show=False,
+        )
         st.pyplot(fig)
     except Exception as e:
         st.info("Visual explanation is generating...")
